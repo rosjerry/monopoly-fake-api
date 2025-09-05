@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/rosjerry/monopoly-fake-api#readme",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^5.1.0"
   }
 }
