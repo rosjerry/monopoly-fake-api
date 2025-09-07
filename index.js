@@ -111,6 +111,31 @@ app.get("/makebet", (req, res) => {
   let { balance, position, bonus_mode, freespin_amount } = state;
   let { board } = db.data;
 
+  // If not in bonus mode and balance is insufficient, block the spin
+  if (!bonus_mode && (balance || 0) < 50) {
+    const availableToSpin = false;
+    const response = {
+      balance,
+      dice_result: [],
+      last_prize_won: null,
+      available_to_spin: availableToSpin,
+      bonus_mode_board: state.bonus_mode_board || null,
+      bonus_mode,
+      freespin_amount,
+      regular_mode_board: board,
+      message: "your balance is not enough to make bet, try again"
+    };
+
+    db.data.state = {
+      ...state,
+      available_to_spin: availableToSpin
+    };
+    db.write();
+
+    console.log(JSON.stringify(response, null, 2))
+    return res.json(response);
+  }
+
   const dice = rollDicePair();
   const diceSum = dice[0] + dice[1];
   position = ((position || 0) + diceSum) % 16;
