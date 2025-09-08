@@ -41,7 +41,7 @@ if (!fs.existsSync(DB_FILE)) {
   const initial = {
     board: generateBoard(),
     state: {
-      balance: 100,
+      balance: 500,
       position: 0,
       available_to_spin: true,
       bonus_mode: false,
@@ -63,7 +63,7 @@ if (!db.data || !Array.isArray(db.data.board) || db.data.board.length !== 16) {
     ...next,
     board: generateBoard(),
     state: {
-      balance: 100,
+      balance: 500,
       position: 0,
       available_to_spin: true,
       bonus_mode: false,
@@ -79,7 +79,7 @@ if (!db.data || !Array.isArray(db.data.board) || db.data.board.length !== 16) {
 // Ensure state exists if DB already had only board from older version
 if (!db.data.state) {
   db.data.state = {
-    balance: 100,
+    balance: 500,
     position: 0,
     available_to_spin: true,
     bonus_mode: false,
@@ -98,7 +98,7 @@ function rollDicePair() {
 }
 
 function createBonusBoardFrom(board) {
-  return board.map((value) => (value === "bonus" ? 10 : (typeof value === 'number' ? value * 10 : value)));
+  return board.map((value) => (value === "bonus" ? 500 : (typeof value === 'number' ? value * 5 : value)));
 }
 
 function regenerateRegularBoardKeepingBonus() {
@@ -106,12 +106,13 @@ function regenerateRegularBoardKeepingBonus() {
 }
 
 function buildStateResponse(board, state) {
+  const ensuredBonusBoard = state.bonus_mode_board || createBonusBoardFrom(board);
   return {
     balance: state.balance,
     dice_result: state.dice_result || [],
     last_prize_won: state.last_prize_won || null,
     available_to_spin: !!state.available_to_spin,
-    bonus_mode_board: state.bonus_mode_board || null,
+    bonus_mode_board: ensuredBonusBoard,
     bonus_mode: !!state.bonus_mode,
     freespin_amount: state.freespin_amount || 0,
     regular_mode_board: board
@@ -157,7 +158,7 @@ function performRollAndUpdateState() {
 
   if (bonus_mode) {
     const prize = Array.isArray(bonusModeBoard) ? bonusModeBoard[position] : null;
-    const prizeValue = typeof prize === 'number' ? prize : (prize === 'bonus' ? 10 : 0);
+    const prizeValue = typeof prize === 'number' ? prize : 0;
     balance = (balance || 0) + prizeValue;
     lastPrizeWon = prizeValue || prize;
     freespin_amount = Math.max(0, (freespin_amount || 0) - 1);
@@ -216,7 +217,7 @@ app.get("/makebet", (req, res) => {
   db.read();
   const { board, state } = db.data;
   const response = buildStateResponse(board, state || {});
-  console.log(JSON.stringify(response, null, 2))
+  // console.log(JSON.stringify(response, null, 2))
   res.json(response);
 });
 
@@ -224,7 +225,7 @@ app.get("/makebet", (req, res) => {
 app.post("/roll", (req, res) => {
   const response = performRollAndUpdateState();
   const minimal = { dice_result: response.dice_result || [] };
-  console.log(JSON.stringify(minimal, null, 2))
+  // console.log(JSON.stringify(minimal, null, 2))
   res.json(minimal);
 });
 
@@ -240,7 +241,7 @@ app.post("/reset-game", (req, res) => {
 
   const board = generateBoard();
   const state = {
-    balance: 100,
+    balance: 500,
     position: 0,
     available_to_spin: true,
     bonus_mode: false,
@@ -254,16 +255,7 @@ app.post("/reset-game", (req, res) => {
   db.data.state = state;
   db.write();
 
-  const response = {
-    balance: state.balance,
-    dice_result: state.dice_result,
-    last_prize_won: state.last_prize_won,
-    available_to_spin: state.available_to_spin,
-    bonus_mode_board: state.bonus_mode_board,
-    bonus_mode: state.bonus_mode,
-    freespin_amount: state.freespin_amount,
-    regular_mode_board: board
-  };
+  const response = buildStateResponse(board, state);
 
   res.json(response);
 });
