@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
-    "db": "npx json-server db.json"
+    "db": "npx json-server db.json --port 3003"
   },
   "repository": {
     "type": "git",

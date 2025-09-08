@@ -105,7 +105,20 @@ function regenerateRegularBoardKeepingBonus() {
   return generateBoard();
 }
 
-app.get("/makebet", (req, res) => {
+function buildStateResponse(board, state) {
+  return {
+    balance: state.balance,
+    dice_result: state.dice_result || [],
+    last_prize_won: state.last_prize_won || null,
+    available_to_spin: !!state.available_to_spin,
+    bonus_mode_board: state.bonus_mode_board || null,
+    bonus_mode: !!state.bonus_mode,
+    freespin_amount: state.freespin_amount || 0,
+    regular_mode_board: board
+  };
+}
+
+function performRollAndUpdateState() {
   db.read();
   const state = db.data.state || {};
   let { balance, position, bonus_mode, freespin_amount } = state;
@@ -116,7 +129,7 @@ app.get("/makebet", (req, res) => {
     const availableToSpin = false;
     const response = {
       balance,
-      dice_result: [],
+      dice_result: state.dice_result || [],
       last_prize_won: null,
       available_to_spin: availableToSpin,
       bonus_mode_board: state.bonus_mode_board || null,
@@ -132,8 +145,7 @@ app.get("/makebet", (req, res) => {
     };
     db.write();
 
-    console.log(JSON.stringify(response, null, 2))
-    return res.json(response);
+    return response;
   }
 
   const dice = rollDicePair();
@@ -144,7 +156,6 @@ app.get("/makebet", (req, res) => {
   let bonusModeBoard = state.bonus_mode_board || null;
 
   if (bonus_mode) {
-    // Bonus spins do not cost, only add prize; freespin decreases
     const prize = Array.isArray(bonusModeBoard) ? bonusModeBoard[position] : null;
     const prizeValue = typeof prize === 'number' ? prize : (prize === 'bonus' ? 10 : 0);
     balance = (balance || 0) + prizeValue;
@@ -155,7 +166,6 @@ app.get("/makebet", (req, res) => {
       bonusModeBoard = null;
     }
   } else {
-    // Regular mode: costs 50 to spin
     balance = (balance || 0) - 50;
     const landed = board[position];
     if (landed === "bonus") {
@@ -163,7 +173,6 @@ app.get("/makebet", (req, res) => {
       bonusModeBoard = createBonusBoardFrom(board);
       bonus_mode = true;
       freespin_amount = 3;
-      // Regenerate the regular board to be used after bonus ends
       board = regenerateRegularBoardKeepingBonus();
     } else if (typeof landed === 'number') {
       balance += landed;
@@ -199,8 +208,24 @@ app.get("/makebet", (req, res) => {
   };
   db.write();
 
+  return response;
+}
+
+// GET /makebet now just returns current state without performing a new roll
+app.get("/makebet", (req, res) => {
+  db.read();
+  const { board, state } = db.data;
+  const response = buildStateResponse(board, state || {});
   console.log(JSON.stringify(response, null, 2))
   res.json(response);
+});
+
+// POST /roll performs a roll and updates the game state
+app.post("/roll", (req, res) => {
+  const response = performRollAndUpdateState();
+  const minimal = { dice_result: response.dice_result || [] };
+  console.log(JSON.stringify(minimal, null, 2))
+  res.json(minimal);
 });
 
 
